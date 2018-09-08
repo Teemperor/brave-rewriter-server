@@ -1,4 +1,4 @@
 project(sockets)
 
-add_executable(serv server.c)
-add_executable(client client.c)
+add_executable(serv server.cpp)
+add_executable(client client.cpp)
