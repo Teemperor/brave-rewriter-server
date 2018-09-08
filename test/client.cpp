@@ -15,7 +15,7 @@ const char *strs[NSTRS] = {"This is the first string from the client.\n",
                      "This is the third string from the client.\n"};
 
 int main(int argc, char **argv) {
-  const char *address = "mysocket";
+  const char *address = "/tmp/mysocket";
   sockaddr_un saun;
 
   /*
