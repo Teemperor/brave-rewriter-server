@@ -6,15 +6,46 @@
 #include <sys/un.h>
 
 #include <string>
+#include <vector>
+#include <cassert>
+#include <thread>
 
-#define NSTRS 3            /* no. of strings  */
+class RewriteJob {
+  int client_fd = 0;
+  void sendMessage(const std::string &msg) {
+    auto bytes_send = send(client_fd, msg.c_str(), msg.size(), 0);
+    assert(bytes_send == msg.size());
+  }
 
-/*
- * Strings we send to the client.
- */
-const char *strs[NSTRS] = {"This is the first string from the server.\n",
-                     "This is the second string from the server.\n",
-                     "This is the third string from the server.\n"};
+public:
+  RewriteJob() = default;
+  explicit RewriteJob(int client_fd) : client_fd(client_fd) {
+  }
+  ~RewriteJob() {
+    close(client_fd);
+  }
+  void run() {
+    FILE *fp = fdopen(client_fd, "r");
+
+    std::vector<std::string> messages = {
+        "This is the first string from the server.\n",
+        "This is the second string from the server.\n",
+        "This is the third string from the server.\n"
+    };
+    for (auto &msg : messages)
+      sendMessage(msg);
+
+    for (int i = 0; i < 3; i++) {
+      int c;
+      while ((c = fgetc(fp)) != EOF) {
+        putchar(c);
+
+        if (c == '\n')
+          break;
+      }
+    }
+  }
+};
 
 class RewriteServer {
   std::string addr;
@@ -32,16 +63,8 @@ public:
     server_sock.sun_family = AF_UNIX;
     strcpy(server_sock.sun_path, addr.c_str());
 
-    /*
-     * Try to bind the address to the socket.  We
-     * unlink the name first so that the bind won't
-     * fail.
-     *
-     * The third argument indicates the "length" of
-     * the structure, not just the length of the
-     * socket name.
-     */
     unlink(addr.c_str());
+    // length of the whole structure, i.e. member + strlen.
     socklen_t len = sizeof(server_sock.sun_family) + strlen(server_sock.sun_path);
 
     if (bind(socket_fd, reinterpret_cast<sockaddr*>(&server_sock), len) < 0) {
@@ -62,47 +85,25 @@ public:
       exit(1);
     }
 
-    /*
-     * Accept connections.  When we accept one, ns
-     * will be connected to the client.  fsaun will
-     * contain the address of the client.
-     */
-    socklen_t fromlen;
-    sockaddr_un client_sock;
-    int client_fd = accept(socket_fd, reinterpret_cast<sockaddr*>(&client_sock), &fromlen);
-    if (client_fd < 0) {
-      perror("server: accept");
-      exit(1);
-    }
-
-    /*
-     * We'll use stdio for reading the socket.
-     */
-    FILE *fp = fdopen(client_fd, "r");
-
-    /*
-     * First we send some strings to the client.
-     */
-    for (int i = 0; i < NSTRS; i++)
-      send(client_fd, strs[i], strlen(strs[i]), 0);
-
-    /*
-     * Then we read some strings from the client and
-     * print them out.
-     */
-    for (int i = 0; i < NSTRS; i++) {
-      char c;
-      while ((c = fgetc(fp)) != EOF) {
-        putchar(c);
-
-        if (c == '\n')
-          break;
+    while (true) {
+      socklen_t fromlen;
+      sockaddr_un client_sock;
+      int client_fd = accept(socket_fd, reinterpret_cast<sockaddr*>(&client_sock), &fromlen);
+      if (client_fd < 0) {
+        perror("server: accept");
+        exit(1);
       }
+
+      auto t = new std::thread([client_fd](){
+        RewriteJob job(client_fd);
+        job.run();
+      });
+      t->detach();
     }
   }
 };
 
-int main() {
+int main(int argc, char **argv) {
   RewriteServer server("mysocket");
   server.run();
 }
