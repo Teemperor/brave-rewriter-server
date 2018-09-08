@@ -5,82 +5,60 @@
 #include <sys/types.h>
 #include <sys/un.h>
 
-#define NSTRS 3            /* no. of strings  */
+#include <string>
+#include <iostream>
 
-/*
- * Strings we send to the server.
- */
-const char *strs[NSTRS] = {"This is the first string from the client.\n",
-                     "This is the second string from the client.\n",
-                     "This is the third string from the client.\n"};
-
-int main(int argc, char **argv) {
+std::string sendAndReceiveMsg(std::string msg) {
   const char *address = "/tmp/mysocket";
-  sockaddr_un saun;
+  sockaddr_un server_sock = {};
 
-  /*
-   * Get a socket to work with.  This socket will
-   * be in the UNIX domain, and will be a
-   * stream socket.
-   */
-  int s;
-  if ((s = socket(PF_UNIX, SOCK_STREAM, 0)) < 0) {
+  int socket_fd = socket(PF_UNIX, SOCK_STREAM, 0);
+  if (socket_fd < 0) {
     perror("client: socket");
     exit(1);
   }
 
-  /*
-   * Create the address we will be connecting to.
-   */
-  saun.sun_family = PF_UNIX;
-  strcpy(saun.sun_path, address);
+  server_sock.sun_family = PF_UNIX;
+  strcpy(server_sock.sun_path, address);
 
-  /*
-   * Try to connect to the address.  For this to
-   * succeed, the server must already have bound
-   * this address, and must have issued a listen()
-   * request.
-   *
-   * The third argument indicates the "length" of
-   * the structure, not just the length of the
-   * socket name.
-   */
-  int len = sizeof(saun.sun_family) + strlen(saun.sun_path);
+  socklen_t len = sizeof(server_sock.sun_family) + strlen(server_sock.sun_path);
 
-  if (connect(s, reinterpret_cast<sockaddr*>(&saun), len) < 0) {
-    perror("client: connect");
-    exit(1);
-  }
+  if (connect(socket_fd, reinterpret_cast<sockaddr*>(&server_sock), len) < 0)
+    return msg;
 
-  /*
-   * We'll use stdio for reading
-   * the socket.
-   */
-  FILE *fp = fdopen(s, "r");
+  FILE *fp = fdopen(socket_fd, "r");
 
-  /*
-   * First we read some strings from the server
-   * and print them out.
-   */
-  for (int i = 0; i < NSTRS; i++) {
-    int c;
-    while ((c = fgetc(fp)) != EOF) {
-      putchar(c);
-
-      if (c == '\n')
-        break;
+  while (true) {
+    auto bytes_send = send(socket_fd, msg.data(), msg.size() + 1U, 0);
+    if (bytes_send == -1) {
+      std::cerr << "Failed to send message " << std::endl;
+      break;
     }
+    if (bytes_send == msg.size() + 1U)
+      break;
+    msg = msg.substr(bytes_send);
   }
 
-  /*
-   * Now we send some strings to the server.
-   */
-  for (int i = 0; i < NSTRS; i++)
-    send(s, strs[i], strlen(strs[i]), 0);
+  std::string result;
+  int c;
+  while ((c = fgetc(fp)) != EOF) {
+    if (c == '\0')
+      break;
+    result.push_back((char)c);
+  }
 
-  /*
-   * We can simply use close() to terminate the
-   * connection, since we're done with both sides.
-   */
-  close(s);
+  close(socket_fd);
+  return result;
+}
+
+int main(int argc, char **argv) {
+  sleep(2);
+  std::string msg = "fooo bar" + std::to_string(getpid());
+  auto res = sendAndReceiveMsg(msg);
+  msg = "(" + msg + ")";
+  std::cerr << msg << "=" << res << std::endl;
+  if (msg == res)
+    return 0;
+  std::cerr << "Got wrong result?" << std::endl;
+  return 1;
 }

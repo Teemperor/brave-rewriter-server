@@ -19,6 +19,10 @@ RewriteServer::RewriteServer(const std::string &addr) : addr(addr) {
     perror("server: bind");
     exit(1);
   }
+  if (listen(socket_fd, 5) < 0) {
+    perror("server: listen");
+    exit(1);
+  }
 }
 
 RewriteServer::~RewriteServer() {
@@ -26,28 +30,18 @@ RewriteServer::~RewriteServer() {
 }
 
 
-void RewriteServer::run() {
-  /*
-   * Listen on the socket.
-   */
-  if (listen(socket_fd, 5) < 0) {
-    perror("server: listen");
+void RewriteServer::step() {
+  socklen_t fromlen;
+  sockaddr_un client_sock= {};
+  int client_fd = accept(socket_fd, reinterpret_cast<sockaddr*>(&client_sock), &fromlen);
+  if (client_fd < 0) {
+    perror("server: accept");
     exit(1);
   }
 
-  while (true) {
-    socklen_t fromlen;
-    sockaddr_un client_sock= {};
-    int client_fd = accept(socket_fd, reinterpret_cast<sockaddr*>(&client_sock), &fromlen);
-    if (client_fd < 0) {
-      perror("server: accept");
-      exit(1);
-    }
-
-    auto t = new std::thread([client_fd](){
-      RewriteJob job(client_fd);
-      job.run();
-    });
-    t->detach();
-  }
+  auto t = new std::thread([client_fd](){
+    RewriteJob job(client_fd);
+    job.run();
+  });
+  t->detach();
 }

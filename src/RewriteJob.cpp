@@ -1,3 +1,4 @@
+#include <iostream>
 #include "RewriteJob.h"
 
 RewriteJob::RewriteJob(int client_fd) : client_fd(client_fd) {
@@ -9,26 +10,27 @@ RewriteJob::~RewriteJob() {
 }
 
 void RewriteJob::run() {
-  std::vector<std::string> messages = {
-      "This is the first string from the server.\n",
-      "This is the second string from the server.\n",
-      "This is the third string from the server.\n"
-  };
-  for (auto &msg : messages)
-    sendMessage(msg);
-
-  for (int i = 0; i < 3; i++) {
-    int c;
-    while ((c = fgetc(fp)) != EOF) {
-      putchar(c);
-
-      if (c == '\n')
-        break;
-    }
+  std::string got;
+  int c;
+  while ((c = fgetc(fp)) != EOF) {
+    if (c == 0)
+      break;
+    got.push_back((char)c);
   }
+  std::cout << got << std::endl;
+
+  sendMessage("(" + got + ")");
 }
 
-void RewriteJob::sendMessage(const std::string &msg) {
-  auto bytes_send = send(client_fd, msg.c_str(), msg.size(), 0);
-  assert(bytes_send == msg.size());
+void RewriteJob::sendMessage(std::string msg) {
+  while (true) {
+    auto bytes_send = send(client_fd, msg.c_str(), msg.size() + 1U, 0);
+    if (bytes_send == -1) {
+      std::cerr << "Failed to send message " << std::endl;
+      return;
+    }
+    if (bytes_send == msg.size() + 1U)
+      return;
+    msg = msg.substr(bytes_send);
+  }
 }

@@ -22,7 +22,7 @@ class RewriteServer {
 public:
   explicit RewriteServer(const std::string &addr);
   ~RewriteServer();
-  void run();
+  void step();
 };
 
 

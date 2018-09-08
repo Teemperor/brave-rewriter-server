@@ -16,7 +16,7 @@
 class RewriteJob {
   int client_fd = 0;
   FILE *fp = nullptr;
-  void sendMessage(const std::string &msg);
+  void sendMessage(std::string msg);
 
 public:
   RewriteJob() = default;
