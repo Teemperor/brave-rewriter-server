@@ -1,5 +1,6 @@
-#include <iostream>
 #include "RewriteJob.h"
+
+#include <iostream>
 
 RewriteJob::RewriteJob(int client_fd,
                        Rewrite rewrite_logic)
