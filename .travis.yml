@@ -6,6 +6,10 @@ branches:
 
 language: c++
 
+os:
+  - linux
+  - osx
+
 compiler:
   - gcc
   - clang
@@ -19,4 +23,4 @@ arch:
     - ./scripts/run_tests.sh $CC $CXX
 
 script:
-  - "curl -s https://raw.githubusercontent.com/mikkeloscar/arch-travis/master/arch-travis.sh | bash"
+  - bash ./scripts/travis.sh
