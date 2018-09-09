@@ -18,7 +18,7 @@ class RewriteJob {
   int client_fd = 0;
   FILE *fp = nullptr;
 public:
-  typedef std::function<std::string(std::string)> Rewrite;
+  typedef std::function<std::string(const std::string&)> Rewrite;
 private:
   Rewrite rewrite_logic;
   void sendMessage(std::string msg);
