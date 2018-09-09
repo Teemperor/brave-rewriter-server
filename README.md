@@ -2,6 +2,9 @@
 
 A server process for rewriting JavaScript code running inside Brave.
 
+#### Status
+[![Build Status](https://travis-ci.org/Teemperor/brave-rewriter-server.svg?branch=master)](https://travis-ci.org/Teemperor/brave-rewriter-server)
+
 ## Architecture
 
 The server is listening to a UNIX domain socket on a specified path and will
