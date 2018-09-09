@@ -1,4 +1,4 @@
-# Rewriter server for JSFlow
+# Rewriter server for Brave
 
 A server process for rewriting JavaScript code running inside Brave.
 
