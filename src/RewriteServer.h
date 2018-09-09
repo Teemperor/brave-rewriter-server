@@ -23,6 +23,7 @@ public:
   explicit RewriteServer(const std::string &addr);
   ~RewriteServer();
   void step();
+  virtual std::string rewrite(const std::string& msg) = 0;
 };
 
 

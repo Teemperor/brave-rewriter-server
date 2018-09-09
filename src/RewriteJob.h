@@ -12,15 +12,20 @@
 #include <vector>
 #include <cassert>
 #include <thread>
+#include <functional>
 
 class RewriteJob {
   int client_fd = 0;
   FILE *fp = nullptr;
+public:
+  typedef std::function<std::string(std::string)> Rewrite;
+private:
+  Rewrite rewrite_logic;
   void sendMessage(std::string msg);
 
 public:
   RewriteJob() = default;
-  explicit RewriteJob(int client_fd);
+  explicit RewriteJob(int client_fd, Rewrite rewrite_logic);
   ~RewriteJob();
   void run();
 };

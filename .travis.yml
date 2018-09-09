@@ -1,0 +1,22 @@
+sudo: required
+
+branches:
+  only:
+    - master
+
+language: c++
+
+compiler:
+  - gcc
+  - clang
+
+arch:
+  packages:
+    - cmake
+    - clang
+    - gcc
+  script:
+    - ./scripts/run_tests.sh $CC $CXX
+
+script:
+  - "curl -s https://raw.githubusercontent.com/mikkeloscar/arch-travis/master/arch-travis.sh | bash"

@@ -9,13 +9,16 @@
 #include <iostream>
 
 std::string sendAndReceiveMsg(std::string msg) {
-  const char *address = "/tmp/mysocket";
+  auto address = getenv("JSFLOW_REWRITER");
+  if (address == nullptr)
+    return msg;
+
   sockaddr_un server_sock = {};
 
   int socket_fd = socket(PF_UNIX, SOCK_STREAM, 0);
   if (socket_fd < 0) {
     perror("client: socket");
-    exit(1);
+    return msg;
   }
 
   server_sock.sun_family = PF_UNIX;
@@ -54,7 +57,7 @@ std::string sendAndReceiveMsg(std::string msg) {
 int main(int argc, char **argv) {
   sleep(2);
   std::string msg = "fooo bar" + std::to_string(getpid());
-  auto res = sendAndReceiveMsg(msg);
+  const auto res = sendAndReceiveMsg(msg);
   msg = "(" + msg + ")";
   std::cerr << msg << "=" << res << std::endl;
   if (msg == res)

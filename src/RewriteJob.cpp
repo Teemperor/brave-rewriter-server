@@ -1,7 +1,9 @@
 #include <iostream>
 #include "RewriteJob.h"
 
-RewriteJob::RewriteJob(int client_fd) : client_fd(client_fd) {
+RewriteJob::RewriteJob(int client_fd,
+                       Rewrite rewrite_logic)
+    : client_fd(client_fd), rewrite_logic(rewrite_logic) {
   fp = fdopen(client_fd, "r");
 }
 
@@ -19,7 +21,7 @@ void RewriteJob::run() {
   }
   std::cout << got << std::endl;
 
-  sendMessage("(" + got + ")");
+  sendMessage(rewrite_logic(got));
 }
 
 void RewriteJob::sendMessage(std::string msg) {
