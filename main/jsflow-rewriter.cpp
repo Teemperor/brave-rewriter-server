@@ -1,5 +1,6 @@
-#include <iostream>
 #include "RewriteServer.h"
+
+#include <iostream>
 
 class JSFlowRewriter : public RewriteServer {
 public:

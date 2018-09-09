@@ -1,5 +1,9 @@
 #include "RewriteServer.h"
 
+#include "RewriteJob.h"
+
+#include <thread>
+
 RewriteServer::RewriteServer(const std::string &addr) : addr(addr) {
   if ((socket_fd = socket(AF_UNIX, SOCK_STREAM, 0)) < 0) {
     perror("server: socket");
