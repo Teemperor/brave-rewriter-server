@@ -23,7 +23,7 @@ and started again without breaking the current running Brave instance.
 ## Building
 
 Clone the git repository and run:
-`mkdir build && cmake .. && cmake --build`
+`mkdir build && cd build && cmake .. && cmake --build`
 
 ## Running
 
