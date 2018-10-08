@@ -1,0 +1,7 @@
+#ifndef SOCKETS_DATAPATH_H
+#define SOCKETS_DATAPATH_H
+
+#include <string>
+const std::string SourcePath = "@CMAKE_CURRENT_SOURCE_DIR@";
+
+#endif //SOCKETS_DATAPATH_H

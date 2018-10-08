@@ -12,6 +12,7 @@ class RewriteServer {
   std::string addr;
   sockaddr_un server_sock = {};
   int socket_fd;
+  bool async_replies = false;
 public:
   explicit RewriteServer(const std::string &addr);
   ~RewriteServer();
