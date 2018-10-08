@@ -20,7 +20,6 @@ void RewriteJob::run() {
       break;
     got.push_back((char)c);
   }
-  std::cout << got << std::endl;
 
   sendMessage(rewrite_logic(got));
 }

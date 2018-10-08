@@ -43,11 +43,16 @@ void RewriteServer::step() {
     exit(1);
   }
 
-  auto t = new std::thread([client_fd, this](){
+  auto reply = [client_fd, this](){
     RewriteJob job(client_fd, [this](const std::string &msg){
       return rewrite(msg);
     });
     job.run();
-  });
-  t->detach();
+  };
+  if (async_replies) {
+    auto t = new std::thread(reply);
+    t->detach();
+  } else {
+    reply();
+  }
 }
