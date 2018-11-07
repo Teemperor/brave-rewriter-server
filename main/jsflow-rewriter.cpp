@@ -6,6 +6,7 @@
 #include <fstream>
 #include <algorithm>
 #include <unordered_map>
+#include <JavaScriptEscaper.h>
 #include "DataPath.h"
 
 class JSFlowRewriter : public RewriteServer {
@@ -44,18 +45,6 @@ jsflow.monitor.warn  = console.log;
   /// Maps UIDs to known V8 instances.
   std::unordered_map<std::string, V8Instance> V8InstancesByUID;
 
-  /// Utility method for replacing all instances in a string.
-  void replaceAll(std::string& str, const std::string& from, const std::string& to) {
-    if(from.empty())
-      return;
-    size_t start_pos = 0;
-    while((start_pos = str.find(from, start_pos)) != std::string::npos) {
-      str.replace(start_pos, from.length(), to);
-      // In case 'to' contains 'from', like replacing 'x' with 'yx'
-      start_pos += to.length();
-    }
-  }
-
   void loadJSFlowSourceCode() {
     std::string jsflow_path = SourcePath + "/jsflow.js";
     std::ifstream t(jsflow_path);
@@ -75,11 +64,7 @@ public:
 
 
   std::string escape(const std::string &in) {
-    // TODO: We need better escaping here than just escaping " and \n.
-    std::string result = in;
-    replaceAll(result, "\"", "\\\"");
-    replaceAll(result, "\n", "\\n");
-    return result;
+    return JavaScriptEscaper::escape(in);
   }
 
   // This is the callback we get from the RewriteServer where can rewrite the

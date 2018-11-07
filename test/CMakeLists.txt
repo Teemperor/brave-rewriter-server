@@ -7,3 +7,7 @@ add_executable(client client.cpp)
 configure_file(test.sh "${CMAKE_CURRENT_BINARY_DIR}/test.sh" COPYONLY)
 add_test(client-server bash -x test.sh
     WORKING_DIRECTORY "${CMAKE_CURRENT_BINARY_DIR}")
+
+add_executable(escape-test escape-test.cpp)
+target_link_libraries(escape-test serv_logic)
+add_test(escape-test escape-test.cpp)
