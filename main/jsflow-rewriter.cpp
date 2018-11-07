@@ -88,22 +88,22 @@ public:
 
     // Get rid of the UID string that we injected at the start of the message.
     // There is a space behind the UID, so that's why we start at size + 1.
-    std::string msg = OriginalMsg.substr(uid.size() + 1);
+    std::string Msg = OriginalMsg.substr(uid.size() + 1);
 
     // Check if the V8 instance we got is actually used for a website and not
     // for some internal Brave website.
     bool IsNewV8Instance = (V8InstancesByUID.count(uid) == 0);
     if (IsNewV8Instance) {
-      V8InstancesByUID[uid] = {(msg.rfind(ValidV8Needle, 0) == 0)};
+      V8InstancesByUID[uid] = {(Msg.rfind(ValidV8Needle, 0) == 0)};
     }
 
     // If the V8 instance isn't valid, then we don't need to rewrite.
     if (!V8InstancesByUID[uid].Valid)
-      return msg;
+      return Msg;
 
     // Print the first 200 characters to stdout. This is just for debugging
     // purposes.
-    std::string Copy = msg;
+    std::string Copy = Msg;
     if (Copy.length() > 200)
       Copy = Copy.substr(0, 200);
     std::cout << "=========" << uid << "\n" << Copy << std::endl;
@@ -122,7 +122,7 @@ public:
     // Now we escape the original source code and let our JSFlow instance
     // execute it.
     Result.append("\njsflow.monitor.execute(\"");
-    std::string escaped = escape(msg);
+    std::string escaped = escape(Msg);
     Result.append(escaped);
     Result.append("\");");
 
