@@ -10,17 +10,17 @@
 #include <functional>
 
 class RewriteJob {
-  int client_fd = 0;
-  FILE *fp = nullptr;
+  int ClientFileDescriptor = 0;
+  FILE *FilePointer = nullptr;
 public:
   typedef std::function<std::string(const std::string&)> Rewrite;
 private:
-  Rewrite rewrite_logic;
-  void sendMessage(std::string msg);
+  Rewrite RewriteLogic;
+  void sendMessage(std::string Message);
 
 public:
   RewriteJob() = default;
-  explicit RewriteJob(int client_fd, Rewrite rewrite_logic);
+  explicit RewriteJob(int ClientFD, Rewrite rewrite);
   ~RewriteJob();
   void run();
 };

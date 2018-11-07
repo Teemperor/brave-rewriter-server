@@ -9,15 +9,15 @@
 #include <string>
 
 class RewriteServer {
-  std::string addr;
-  sockaddr_un server_sock = {};
-  int socket_fd;
-  bool async_replies = false;
+  std::string Address;
+  sockaddr_un ServerSock = {};
+  int SocketFileDescriptor;
+  bool UseAsyncReplies = false;
 public:
-  explicit RewriteServer(const std::string &addr);
+  explicit RewriteServer(const std::string &Addr);
   ~RewriteServer();
   void step();
-  virtual std::string rewrite(const std::string& msg) = 0;
+  virtual std::string rewrite(const std::string& Message) = 0;
 };
 
 

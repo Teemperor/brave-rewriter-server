@@ -63,32 +63,32 @@ public:
   }
 
 
-  std::string escape(const std::string &in) {
-    return JavaScriptEscaper::escape(in);
+  std::string escape(const std::string &Inpupt) {
+    return JavaScriptEscaper::escape(Inpupt);
   }
 
   // This is the callback we get from the RewriteServer where can rewrite the
   // message we received.
-  std::string rewrite(const std::string& original_msg) override {
+  std::string rewrite(const std::string& OriginalMsg) override {
     // First extract the v8 UID from the message. The UID is a unique string
     // that we prepend to every message and which identifiers the V8 instance
     // that sent the message.
     std::string uid;
-    if (original_msg.find(' ') != std::string::npos) {
-      uid = original_msg.substr(0, original_msg.find(' '));
+    if (OriginalMsg.find(' ') != std::string::npos) {
+      uid = OriginalMsg.substr(0, OriginalMsg.find(' '));
     } else {
       // If we don't have the message in the form
       //      'UID SUFFIX'
       // e.g. '134524 some source code'
       // than our code for sending the JS source code here didn't include an
       // UID string for us.
-      std::cerr << "Malformed message?\n" << original_msg << std::endl;
-      return original_msg;
+      std::cerr << "Malformed message?\n" << OriginalMsg << std::endl;
+      return OriginalMsg;
     }
 
     // Get rid of the UID string that we injected at the start of the message.
     // There is a space behind the UID, so that's why we start at size + 1.
-    std::string msg = original_msg.substr(uid.size() + 1);
+    std::string msg = OriginalMsg.substr(uid.size() + 1);
 
     // Check if the V8 instance we got is actually used for a website and not
     // for some internal Brave website.
@@ -103,30 +103,30 @@ public:
 
     // Print the first 200 characters to stdout. This is just for debugging
     // purposes.
-    std::string cpy = msg;
-    if (cpy.length() > 200)
-      cpy = cpy.substr(0, 200);
-    std::cout << "=========" << uid << "\n" << cpy << std::endl;
+    std::string Copy = msg;
+    if (Copy.length() > 200)
+      Copy = Copy.substr(0, 200);
+    std::cout << "=========" << uid << "\n" << Copy << std::endl;
 
 
-    std::string result;
+    std::string Result;
 
     // If this is a V8 instance we haven't encountered before, we have to inject
     // the JSFlow source code and initializers.
     if (IsNewV8Instance) {
-      result.append(JSFlowPrefix);
-      result.append(JSFlowSource);
-      result.append(JSFlowInitializers);
+      Result.append(JSFlowPrefix);
+      Result.append(JSFlowSource);
+      Result.append(JSFlowInitializers);
     }
 
     // Now we escape the original source code and let our JSFlow instance
     // execute it.
-    result.append("\njsflow.monitor.execute(\"");
+    Result.append("\njsflow.monitor.execute(\"");
     std::string escaped = escape(msg);
-    result.append(escaped);
-    result.append("\");");
+    Result.append(escaped);
+    Result.append("\");");
 
-    return result;
+    return Result;
   }
 };
 
@@ -139,8 +139,8 @@ int main(int argc, char **argv) {
     return 1;
   }
   // Initialize and run our rewriter service.
-  JSFlowRewriter server;
+  JSFlowRewriter Server;
   for(;;) {
-    server.step();
+    Server.step();
   }
 }

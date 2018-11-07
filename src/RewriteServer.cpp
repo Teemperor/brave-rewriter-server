@@ -4,55 +4,57 @@
 
 #include <thread>
 
-RewriteServer::RewriteServer(const std::string &addr) : addr(addr) {
-  if ((socket_fd = socket(AF_UNIX, SOCK_STREAM, 0)) < 0) {
+RewriteServer::RewriteServer(const std::string &Addr) : Address(Addr) {
+  if ((SocketFileDescriptor = socket(AF_UNIX, SOCK_STREAM, 0)) < 0) {
     perror("server: socket");
     std::exit(1);
   }
   /*
    * Create the address we will be binding to.
    */
-  server_sock.sun_family = AF_UNIX;
-  strcpy(server_sock.sun_path, addr.c_str());
+  ServerSock.sun_family = AF_UNIX;
+  strcpy(ServerSock.sun_path, Addr.c_str());
 
-  unlink(addr.c_str());
+  unlink(Addr.c_str());
   // length of the whole structure, i.e. member + strlen.
-  socklen_t len = sizeof(server_sock.sun_family) + strlen(server_sock.sun_path);
+  socklen_t len = sizeof(ServerSock.sun_family) + strlen(ServerSock.sun_path);
 
-  if (bind(socket_fd, reinterpret_cast<sockaddr*>(&server_sock), len) < 0) {
+  if (bind(SocketFileDescriptor, reinterpret_cast<sockaddr*>(&ServerSock), len) < 0) {
     perror("server: bind");
     exit(1);
   }
-  if (listen(socket_fd, 5) < 0) {
+  if (listen(SocketFileDescriptor, 5) < 0) {
     perror("server: listen");
     exit(1);
   }
 }
 
 RewriteServer::~RewriteServer() {
-  close(socket_fd);
+  close(SocketFileDescriptor);
 }
 
 
 void RewriteServer::step() {
-  socklen_t fromlen;
-  sockaddr_un client_sock= {};
-  int client_fd = accept(socket_fd, reinterpret_cast<sockaddr*>(&client_sock), &fromlen);
-  if (client_fd < 0) {
+  socklen_t FromLength;
+  sockaddr_un ClientSocket= {};
+  int ClientFileDescriptor = accept(SocketFileDescriptor, reinterpret_cast<sockaddr*>(&ClientSocket), &FromLength);
+  if (ClientFileDescriptor < 0) {
     perror("server: accept");
     exit(1);
   }
 
-  auto reply = [client_fd, this](){
-    RewriteJob job(client_fd, [this](const std::string &msg){
-      return rewrite(msg);
+  auto Reply = [ClientFileDescriptor, this](){
+    RewriteJob job(ClientFileDescriptor, [this](const std::string &Message){
+      return rewrite(Message);
     });
     job.run();
   };
-  if (async_replies) {
-    auto t = new std::thread(reply);
-    t->detach();
+  if (UseAsyncReplies) {
+    // Spawn a new thread and instantly detach it.
+    // TODO: This 
+    auto T = new std::thread(Reply);
+    T->detach();
   } else {
-    reply();
+    Reply();
   }
 }
