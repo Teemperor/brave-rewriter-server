@@ -14,13 +14,9 @@ compiler:
   - gcc
   - clang
 
-arch:
-  packages:
-    - cmake
-    - clang
-    - gcc
-  script:
-    - ./scripts/run_tests.sh $CC $CXX
-
+packages:
+  - cmake
+  - clang
+  - gcc
 script:
-  - bash ./scripts/travis.sh
+  - ./scripts/run_tests.sh $CC $CXX
