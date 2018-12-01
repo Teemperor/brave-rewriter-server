@@ -7,6 +7,8 @@
 #include <algorithm>
 #include <unordered_map>
 #include <JavaScriptEscaper.h>
+#include <vector>
+
 #include "DataPath.h"
 
 class JSFlowRewriter : public RewriteServer {
@@ -32,17 +34,23 @@ jsflow.monitor.warn  = console.log;
   /// This is the string that should be injected by Chrome in a fresh V8 instance
   /// when it's used for actual website rendering. If we find this string,
   /// consider the corresponding V8 instance valid for our rewriting purposes.
-  std::string ValidV8Needle = "!function(e){var t={};function r(n){if(t[n])"
+  std::string ValidV8Needle2 = "!function(e){var t={};function r(n){if(t[n])"
                               "return t[n].exports;var o=t[n]={i:n,l:!1,export";
+  std::string ValidV8Needle = "(function() { // Copyright (c) 2012 The Chromium Authors. All rights reserved.";
   std::string DebuggerV8Needle = "\"use strict\";(function(InjectedScriptHost,inspectedGlobalObject,injectedScriptId)";
-  std::string DebuggerFuncNeedle = "(function anonymous";
+
+  std::vector<std::string> IgnoredMessagePrefixes = {
+      "var frame = document.createElement('iframe');frame.name = 'chromedriver dummy frame';",
+      "!function(e){var t={};function r(n){if(t[n])return t[n].exports;var o=t[n]={i:n,l:!1,exports:{}};",
+      "(function(require, requireNative, loadScript, exports, console, privates, apiBridge, bindingUtil",
+      "dispatch("
+  };
 
   /// Represents a V8 instance in Chrome that is communicating with us.
   struct V8Instance {
     /// Whether the V8 instance is used for a website, and not just some
     /// internal V8 instance used for the dev tools, etc..
     bool ShouldRewrite = false;
-    bool IsDebuggerInstance = false;
     bool InitializedJSFlow = false;
   };
 
@@ -61,6 +69,10 @@ jsflow.monitor.warn  = console.log;
     JSFlowSource = buffer.str();
   }
 
+  bool strStartsWith(const std::string &S, const std::string &Prefix) {
+    return S.rfind(Prefix, 0) == 0;
+  }
+
 public:
   JSFlowRewriter() : RewriteServer(getenv("JSFLOW_REWRITER")) {
     loadJSFlowSourceCode();
@@ -71,8 +83,10 @@ public:
     return JavaScriptEscaper::escape(Inpupt);
   }
 
+
+
   bool hasNeedle(const std::string &Msg) {
-    return (Msg.rfind(ValidV8Needle, 0) == 0);
+    return strStartsWith(Msg, ValidV8Needle) || strStartsWith(Msg, ValidV8Needle2);
   }
 
   // This is the callback we get from the RewriteServer where can rewrite the
@@ -98,18 +112,6 @@ public:
     // There is a space behind the UID, so that's why we start at size + 1.
     std::string Msg = OriginalMsg.substr(uid.size() + 1);
 
-    // Check if the V8 instance we got is actually used for a website and not
-    // for some internal Brave website.
-    if (V8InstancesByUID.count(uid) == 0) {
-      std::cerr << "Found new v8 instance\n";
-      V8Instance NewInstance;
-      NewInstance.ShouldRewrite = hasNeedle(Msg);
-      NewInstance.IsDebuggerInstance = Msg.rfind(DebuggerV8Needle, 0) == 0;
-      V8InstancesByUID[uid] = NewInstance;
-    }
-
-    V8Instance &CurrentInstance = V8InstancesByUID[uid];
-
 
     // Print the first 200 characters to stdout. This is just for debugging
     // purposes.
@@ -119,29 +121,48 @@ public:
       Copy.append("...");
     }
     std::cerr << "\n<========" << uid << "\n" << Copy <<
-    "\n========>\n";
+              "\n========>\n";
+
+    if (strStartsWith(Msg, "1") || strStartsWith(Msg, "document.URL")
+    || strStartsWith(Msg, "(function(require, requireNative, loadScript, exports, console, privates, apiBridge, bindingUtil")) {
+      std::cerr << "Found special ignored message\n";
+      return Msg;
+    }
+
+    bool FreshInstance = false;
+
+    // Check if the V8 instance we got is actually used for a website and not
+    // for some internal Brave website.
+    if (V8InstancesByUID.count(uid) == 0) {
+      std::cerr << "Found new v8 instance\n";
+      V8Instance NewInstance;
+      NewInstance.ShouldRewrite = hasNeedle(Msg);
+      NewInstance.IsDebuggerInstance = Msg.rfind(DebuggerV8Needle, 0) == 0;
+      V8InstancesByUID[uid] = NewInstance;
+      FreshInstance = true;
+    }
+
+    V8Instance &CurrentInstance = V8InstancesByUID[uid];
+
+    if (FreshInstance) {
+      std::cerr << "Not rewriting first message\n";
+      return Msg;
+    }
 
     if (Msg.rfind(DebuggerV8Needle, 0) == 0) {
       std::cerr << "Skipping debugger needle\n";
       return Msg;
     }
 
-    if (Msg.size() <= 25) {
-      std::cerr << "Skipping too short code\n";
-      return Msg;
-    }
 
-    if (CurrentInstance.IsDebuggerInstance && hasNeedle(Msg)) {
-      std::cerr << "Activaging rewriting in debuggin instance\n";
-      CurrentInstance.ShouldRewrite = true;
+    for (const std::string &Prefix : IgnoredMessagePrefixes) {
+      if (strStartsWith(Msg, Prefix)) {
+        std::cerr << "Found ignored messages prefix\n";
+        return Msg;
+      }
     }
 
     bool ShouldRewrite = CurrentInstance.ShouldRewrite;
-
-    if (Msg.rfind(DebuggerFuncNeedle, 0) == 0) {
-      std::cerr << "Not rewriting debugger function\n";
-      ShouldRewrite = false;
-    }
 
     // If the V8 instance isn't valid, then we don't need to rewrite.
     if (!ShouldRewrite) {
@@ -157,19 +178,16 @@ public:
     // the JSFlow source code and initializers.
     if (!CurrentInstance.InitializedJSFlow) {
       std::cerr << "Injecting JSFlow\n";
-      CurrentInstance.InitializedJSFlow = true;
+      //CurrentInstance.InitializedJSFlow = true;
+      Result.append("if (jsflow == null) {\n");
       Result.append(JSFlowPrefix);
       Result.append(JSFlowSource);
       Result.append(JSFlowInitializers);
+      Result.append("}\n");
     }
 
     // Now we escape the original source code and let our JSFlow instance
     // execute it.
-    static unsigned ID = 0;
-    std::cerr << "Assigned ID " << (++ID) << std::endl;
-    Result.append("if (typeof jsflow === 'undefined') {\n"
-                  "  jsflow" + std::to_string(ID) + ".monitor.execute('');\n"
-                  "}\n");
     Result.append("\njsflow.monitor.execute(\"");
     //Result.append("\njsflow" + std::to_string(ID) + ".monitor.execute(\"");
     std::string escaped = escape(Msg);
