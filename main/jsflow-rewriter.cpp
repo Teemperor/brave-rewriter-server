@@ -11,6 +11,52 @@
 
 #include "DataPath.h"
 
+
+class TextBox {
+  std::ostream& getStream() { return std::cerr; }
+
+public:
+  TextBox() {
+    printColor(Magenta, "┏━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┓\n");
+    printColor(Magenta, "┃          New Message          ┃\n");
+    printColor(Magenta, "\n");
+  }
+  ~TextBox() {
+    printColor(Magenta, "\n");
+    printColor(Magenta, "┃        End Of Message         ┃\n");
+    printColor(Magenta, "┗━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┛\n\n");
+  }
+
+  std::string shorten(const std::string &S, unsigned Limit) const {
+    if (S.size() <= Limit) {
+      return S;
+    }
+    Limit /= 2;
+    return S.substr(0, Limit) + "[...]" + S.substr(S.size() - Limit, Limit);
+  }
+
+  template<typename T>
+  TextBox &operator<<(const T &t) {
+    getStream() << t;
+    return *this;
+  }
+
+  const char *Red = "\x1b[31m";
+  const char *Green = "\x1b[32m";
+  const char *Yellow = "\x1b[33m";
+  const char *Blue = "\x1b[34m";
+  const char *Magenta = "\x1b[35m";
+  const char *Cyan = "\x1b[36m";
+  const char *Reset = "\x1b[0m";
+
+  void printColor(const char *Color, const std::string &S) {
+    if (getenv("JSFLOW_NO_COLOR"))
+      *this << S;
+    else
+      *this << Color << S << Reset;
+  }
+};
+
 class JSFlowRewriter : public RewriteServer {
 
   /// Source code we inject before we include the JSFlow source code.
@@ -31,37 +77,71 @@ jsflow.monitor.error = console.log;
 jsflow.monitor.warn  = console.log;
 )js";
 
-  /// This is the string that should be injected by Chrome in a fresh V8 instance
-  /// when it's used for actual website rendering. If we find this string,
-  /// consider the corresponding V8 instance valid for our rewriting purposes.
-  std::string ValidV8Needle2 = "!function(e){var t={};function r(n){if(t[n])"
-                              "return t[n].exports;var o=t[n]={i:n,l:!1,export";
-  std::string ValidV8Needle = "(function() { // Copyright (c) 2012 The Chromium Authors. All rights reserved.";
-  std::string DebuggerV8Needle = "\"use strict\";(function(InjectedScriptHost,inspectedGlobalObject,injectedScriptId)";
+  /// We have to filter certain V8 contexts from being rewritten. This defines
+  /// a list of code prefixes for the specific Code that Chrome will inject
+  /// as the first source code into these contexts. If we find a new V8 context
+  /// and the first code in this V8 context starts with one of these prefixes,
+  /// we should not rewrite it.
+  std::vector<std::string> IgnoreNeedles = {
+      "(function() { // Copyright (c) 2012 The Chromium Authors. All rights reserved.",
 
-  std::vector<std::string> IgnoredMessagePrefixes = {
-      "var frame = document.createElement('iframe');frame.name = 'chromedriver dummy frame';",
-      "!function(e){var t={};function r(n){if(t[n])return t[n].exports;var o=t[n]={i:n,l:!1,exports:{}};",
-      "(function(require, requireNative, loadScript, exports, console, privates, apiBridge, bindingUtil",
-      "dispatch("
+      "// Copyright (c) 2013 The Chromium Authors. All rights reserved.",
+
+      "!function(e){var t={};function n(r){if(t[r])return t[r].exports;var o=t[r]={i:r,l:!1,export",
+
+      "/******/ (function(modules) { // webpackBootstrap",
+
+      "!function(e){var t={};function r(n){if(t[n])return t[n].exports;var o=t[n]",
+
+      "// Copyright (c) 2013 The Chromium Authors. All rights reserved.",
+
+      "// Copyright 2014 The Chromium Authors. All rights reserved.",
+
+      "!function(e){var t={};function o(n){if(t[n])return t[n]",
+
+      "const lightGridColor = \"rgba(0,0,0,0.2)\";\n"
+      "const darkGridColor = \"rgba(0,0,0,0.7)\";\n"
+      "const transparentColor = \"rgba(0, 0, 0, 0)\";\n"
+      "const gridBackgroundColor = \"rgba(255, 255, 255, 0.8)\";\n"
+      "\n"
+      "function drawPausedInDebuggerMessage(message)\n"
+      "{\n",
+
+      "/*\nCopyright 2014 Mozilla Foundation\n\nLicensed under the Apache Lice"
+      "nse, Version 2.0 (the \"License\");\nyou may not use this file except in"
+      " compliance with the License.\nYou may obtain a copy of the License at\n"
+      "\n    http://www.apache.org/licenses/LICENSE-2.0\n\nUnless required by a"
+      "pplicable law or agreed to in writing, software\ndistributed under the L"
+      "icense is distributed on an \"AS IS\" BASIS,\nWITHOUT WARRANTIES OR COND"
+      "ITIONS OF ANY KIND, either express or implied.\nSee the License for the "
+      "specific language governing permissions and\nlimitations under the Licen"
+      "se.\n*/\n\n\'use strict\';\n\nvar VIEWER_URL = chrome.extension.getURL("
+      "\'content/web/viewer.html\');\n\nfunction getViewerURL(pdf_url) {\n  ret"
+      "urn VIEWER_URL + \'?file=\' + encodeURIComponent(pdf_url);\n}\n\nif (CSS"
+      ".supports(\'animation\', \'0s\')) {\n  document.addEventListener(\'anima"
+      "tionstart\',",
+
+      "(function(require, requireNative, loadScript, exports, console, privates"
+      ", apiBridge, bindingUtil, getInternalApi, $Array, $Function, $JSON",
   };
 
   /// Represents a V8 instance in Chrome that is communicating with us.
-  struct V8Instance {
+  struct V8Context {
     /// Whether the V8 instance is used for a website, and not just some
     /// internal V8 instance used for the dev tools, etc..
     bool ShouldRewrite = false;
     bool InitializedJSFlow = false;
+    std::string Name;
   };
 
   /// Maps UIDs to known V8 instances.
-  std::unordered_map<std::string, V8Instance> V8InstancesByUID;
+  std::unordered_map<std::string, V8Context> V8InstancesByUID;
 
   void loadJSFlowSourceCode() {
     std::string jsflow_path = SourcePath + "/jsflow.js";
     std::ifstream t(jsflow_path);
     if (!t.good()) {
-      std::cerr << "Couldn't load jsflow under " << jsflow_path << std::endl;
+      std::cerr << "Couldn't load jsflow under " << jsflow_path << "\n";
       exit(1);
     }
     std::stringstream buffer;
@@ -69,6 +149,7 @@ jsflow.monitor.warn  = console.log;
     JSFlowSource = buffer.str();
   }
 
+  /// Utility function to check if S has the given prefix.
   bool strStartsWith(const std::string &S, const std::string &Prefix) {
     return S.rfind(Prefix, 0) == 0;
   }
@@ -78,20 +159,24 @@ public:
     loadJSFlowSourceCode();
   }
 
-
   std::string escape(const std::string &Inpupt) {
     return JavaScriptEscaper::escape(Inpupt);
   }
 
-
-
-  bool hasNeedle(const std::string &Msg) {
-    return strStartsWith(Msg, ValidV8Needle) || strStartsWith(Msg, ValidV8Needle2);
+  /// Returns true if this is a valid V8 context by looking at the first code
+  /// that was passed into the context. Valid means that we should inject
+  /// JSFlow into it and rewrite code.
+  bool isValidV8Context(const std::string &FirstMessageInContext) {
+    for (const auto &N : IgnoreNeedles)
+      if (strStartsWith(FirstMessageInContext, N))
+        return false;
+    return true;
   }
 
   // This is the callback we get from the RewriteServer where can rewrite the
   // message we received.
   std::string rewrite(const std::string& OriginalMsg) override {
+
     // First extract the v8 UID from the message. The UID is a unique string
     // that we prepend to every message and which identifiers the V8 instance
     // that sent the message.
@@ -104,7 +189,7 @@ public:
       // e.g. '134524 some source code'
       // than our code for sending the JS source code here didn't include an
       // UID string for us.
-      std::cerr << "Malformed message?\n" << OriginalMsg << std::endl;
+      std::cerr << "Malformed message?\n" << OriginalMsg << "\n";
       return OriginalMsg;
     }
 
@@ -112,94 +197,67 @@ public:
     // There is a space behind the UID, so that's why we start at size + 1.
     std::string Msg = OriginalMsg.substr(uid.size() + 1);
 
-
-    // Print the first 200 characters to stdout. This is just for debugging
-    // purposes.
-    std::string Copy = Msg;
-    if (Copy.length() > 100) {
-      Copy = Copy.substr(0, 100);
-      Copy.append("...");
-    }
-    std::cerr << "\n<========" << uid << "\n" << Copy <<
-              "\n========>\n";
-
-    if (strStartsWith(Msg, "1") || strStartsWith(Msg, "document.URL")
-    || strStartsWith(Msg, "(function(require, requireNative, loadScript, exports, console, privates, apiBridge, bindingUtil")) {
-      std::cerr << "Found special ignored message\n";
+    if (strStartsWith(Msg, "1") || strStartsWith(Msg, "document.URL")) {
       return Msg;
     }
 
-    bool FreshInstance = false;
+    TextBox info;
 
     // Check if the V8 instance we got is actually used for a website and not
     // for some internal Brave website.
     if (V8InstancesByUID.count(uid) == 0) {
-      std::cerr << "Found new v8 instance\n";
-      V8Instance NewInstance;
-      NewInstance.ShouldRewrite = hasNeedle(Msg);
-      NewInstance.IsDebuggerInstance = Msg.rfind(DebuggerV8Needle, 0) == 0;
+      info.printColor(info.Green, "Found new V8 context: ");
+      V8Context NewInstance;
+      NewInstance.ShouldRewrite = isValidV8Context(Msg);
+      if (NewInstance.ShouldRewrite)
+        info.printColor(info.Green, "VALID CONTEXT\n");
+      else
+        info.printColor(info.Red, "INVALID CONTEXT\n");
+      NewInstance.Name = "Ctxt" + std::to_string(V8InstancesByUID.size());
       V8InstancesByUID[uid] = NewInstance;
-      FreshInstance = true;
     }
 
-    V8Instance &CurrentInstance = V8InstancesByUID[uid];
-
-    if (FreshInstance) {
-      std::cerr << "Not rewriting first message\n";
-      return Msg;
-    }
-
-    if (Msg.rfind(DebuggerV8Needle, 0) == 0) {
-      std::cerr << "Skipping debugger needle\n";
-      return Msg;
-    }
-
-
-    for (const std::string &Prefix : IgnoredMessagePrefixes) {
-      if (strStartsWith(Msg, Prefix)) {
-        std::cerr << "Found ignored messages prefix\n";
-        return Msg;
-      }
-    }
-
-    bool ShouldRewrite = CurrentInstance.ShouldRewrite;
+    V8Context &CurrentInstance = V8InstancesByUID[uid];
+    info.printColor(info.Yellow, "Current V8 context: " + CurrentInstance.Name + "\n");
 
     // If the V8 instance isn't valid, then we don't need to rewrite.
-    if (!ShouldRewrite) {
-      std::cerr << "Skipping because marked invalid\n";
+    if (!CurrentInstance.ShouldRewrite) {
+      info.printColor(info.Yellow, "Skipping because marked invalid\n");
       return Msg;
     }
 
-    std::cerr << "Rewriting\n";
+    info.printColor(info.Blue, "Code before rewriting: ");
+    info << info.shorten(Msg, 500) << "\n";
+    info.printColor(info.Blue, "######### END OF CODE ###########\n\n");
 
     std::string Result;
 
     // If this is a V8 instance we haven't encountered before, we have to inject
     // the JSFlow source code and initializers.
     if (!CurrentInstance.InitializedJSFlow) {
-      std::cerr << "Injecting JSFlow\n";
-      //CurrentInstance.InitializedJSFlow = true;
-      Result.append("if (jsflow == null) {\n");
+      info.printColor(info.Green, "Injecting JSFlow\n");
+      CurrentInstance.InitializedJSFlow = true;
       Result.append(JSFlowPrefix);
       Result.append(JSFlowSource);
       Result.append(JSFlowInitializers);
-      Result.append("}\n");
     }
 
     // Now we escape the original source code and let our JSFlow instance
     // execute it.
-    Result.append("\njsflow.monitor.execute(\"");
-    //Result.append("\njsflow" + std::to_string(ID) + ".monitor.execute(\"");
+    if (getenv("JSFLOW_RETURN_VALUE"))
+      Result.append("console.log(");
+
+    Result.append("jsflow.monitor.execute(\"");
     std::string escaped = escape(Msg);
     Result.append(escaped);
-    Result.append("\").value.value;");
+    Result.append("\").value.value");
 
-    Copy = Result;
-    if (Copy.length() > 150) {
-      Copy = Copy.substr(0, 100) + "[...]" + Copy.substr(Copy.size() - 50, 50);
-    }
-    std::cerr << "\n<========Result " << uid << "\n" << Copy <<
-              "\n========>\n";
+    if (getenv("JSFLOW_RETURN_VALUE"))
+      Result.append(");");
+
+    info.printColor(info.Blue, "Code rewritten to: \n");
+    info << info.shorten(Result, 100) << "\n";
+    info.printColor(info.Blue, "######### END OF CODE ###########\n\n");
 
     return Result;
   }
