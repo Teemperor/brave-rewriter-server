@@ -196,7 +196,7 @@ public:
     // There is a space behind the UID, so that's why we start at size + 1.
     std::string Msg = OriginalMsg.substr(uid.size() + 1);
 
-    if (strStartsWith(Msg, "1") || strStartsWith(Msg, "document.URL")) {
+    if (strStartsWith(Msg, "1") || strStartsWith(Msg, "document.URL") || strStartsWith(Msg, "lnum.value >= rnum.value")) {
       return Msg;
     }
 
