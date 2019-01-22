@@ -219,15 +219,16 @@ public:
     V8Context &CurrentInstance = V8InstancesByUID[uid];
     info.printColor(info.Yellow, "Current V8 context: " + CurrentInstance.Name + "\n");
 
+    info.printColor(info.Blue, "Code before rewriting: ");
+    info << info.shorten(Msg, 200) << "\n";
+    info.printColor(info.Blue, "######### END OF CODE ###########\n\n");
+
     // If the V8 instance isn't valid, then we don't need to rewrite.
     if (!CurrentInstance.ShouldRewrite) {
       info.printColor(info.Yellow, "Skipping because marked invalid\n");
       return Msg;
     }
 
-    info.printColor(info.Blue, "Code before rewriting: ");
-    info << info.shorten(Msg, 500) << "\n";
-    info.printColor(info.Blue, "######### END OF CODE ###########\n\n");
 
     std::string Result;
 
