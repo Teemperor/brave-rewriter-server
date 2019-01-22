@@ -62,7 +62,6 @@ class JSFlowRewriter : public RewriteServer {
   /// Source code we inject before we include the JSFlow source code.
   std::string JSFlowPrefix =
 R"js(
-var jsflow = { console : {} };
 )js";
 
   std::string JSFlowSource;
@@ -70,7 +69,7 @@ var jsflow = { console : {} };
   /// Initializes JSFlow.
   std::string JSFlowInitializers =
 R"js(
-jsflow.monitor = new jsflow.Monitor(window);
+jsflow.monitor = window.jsflow;
 jsflow.monitor.log   = console.log;
 jsflow.monitor.print = console.log;
 jsflow.monitor.error = console.log;
