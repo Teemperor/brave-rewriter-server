@@ -250,7 +250,7 @@ public:
     Result.append("jsflow.monitor.execute(\"");
     std::string escaped = escape(Msg);
     Result.append(escaped);
-    Result.append("\").value.value");
+    Result.append("\")");
 
     if (getenv("JSFLOW_RETURN_VALUE"))
       Result.append(");");
