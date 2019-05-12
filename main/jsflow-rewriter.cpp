@@ -17,14 +17,13 @@ class TextBox {
 
 public:
   TextBox() {
-    printColor(Magenta, "┏━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┓\n");
-    printColor(Magenta, "┃          New Message          ┃\n");
-    printColor(Magenta, "\n");
+    printColor(Magenta, "┏━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┓\n");
+    printColor(Magenta, "┃                   New Message                  ┃\n");
   }
   ~TextBox() {
+    printColor(Magenta, "┃                 End Of Message                 ┃\n");
+    printColor(Magenta, "┗━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┛\n");
     printColor(Magenta, "\n");
-    printColor(Magenta, "┃        End Of Message         ┃\n");
-    printColor(Magenta, "┗━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┛\n\n");
   }
 
   std::string shorten(const std::string &S, unsigned Limit) const {
@@ -198,11 +197,13 @@ public:
     // There is a space behind the UID, so that's why we start at size + 1.
     std::string Msg = OriginalMsg.substr(uid.size() + 1);
 
-    if (strStartsWith(Msg, "1") || strStartsWith(Msg, "document.URL") || strStartsWith(Msg, "lnum.value >= rnum.value")) {
+    TextBox info;
+
+    if (strStartsWith(Msg, "1") || strStartsWith(Msg, "document.URL") || strStartsWith(Msg, "lnum.value")
+        || strStartsWith(Msg, "leftNum.value")) {
+      info.printColor(info.Cyan, "Skipping message: " + info.shorten(Msg, 200));
       return Msg;
     }
-
-    TextBox info;
 
     // Check if the V8 instance we got is actually used for a website and not
     // for some internal Brave website.
@@ -221,7 +222,7 @@ public:
     V8Context &CurrentInstance = V8InstancesByUID[uid];
     info.printColor(info.Yellow, "Current V8 context: " + CurrentInstance.Name + "\n");
 
-    info.printColor(info.Blue, "Code before rewriting: ");
+    info.printColor(info.Blue, "Received code to rewrite:\n");
     info << info.shorten(Msg, 200) << "\n";
     info.printColor(info.Blue, "######### END OF CODE ###########\n\n");
 
@@ -230,7 +231,6 @@ public:
       info.printColor(info.Yellow, "Skipping because marked invalid\n");
       return Msg;
     }
-
 
     std::string Result;
 
