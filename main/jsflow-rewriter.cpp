@@ -122,6 +122,8 @@ jsflow.monitor.warn  = console.log;
 
       "(function(require, requireNative, loadScript, exports, console, privates"
       ", apiBridge, bindingUtil, getInternalApi, $Array, $Function, $JSON",
+
+      "brave_new_tab.statsUpdated()"
   };
 
   /// Represents a V8 instance in Chrome that is communicating with us.
