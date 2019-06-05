@@ -69,10 +69,6 @@ R"js(
   std::string JSFlowInitializers =
 R"js(
 jsflow.monitor = window.jsflow;
-jsflow.monitor.log   = console.log;
-jsflow.monitor.print = console.log;
-jsflow.monitor.error = console.log;
-jsflow.monitor.warn  = console.log;
 )js";
 
   /// We have to filter certain V8 contexts from being rewritten. This defines
